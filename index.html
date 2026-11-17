@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda y Control de Citas - Grupo 502</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #eef2f7; margin: 0; padding: 15px; color: #333; }
+        .container { max-width: 650px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+        h2 { color: #1b4f72; text-align: center; margin-top: 0; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .form-col { flex: 1; min-width: 140px; }
+        label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; }
+        .btn-add { background: #1b4f72; width: 100%; margin-top: 5px; }
+        .btn-add:hover { background: #154360; }
+        .filter-bar { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 15px; display: flex; gap: 10px; align-items: center; border: 1px solid #ddd; }
+        .cita-item { border: 1px solid #ddd; border-left: 5px solid #1b4f72; padding: 12px; margin-top: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background: #fff; }
+        .cita-atendida { border-left-color: #28a745; background: #f4fbf6; opacity: 0.85; }
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+        .bg-pendiente { background: #fff3cd; color: #856404; }
+        .bg-atendida { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>📅 Gestión de Citas y Turnos</h2>
+
+        <div class="form-row">
+            <div class="form-col">
+                <label>Nombre del Cliente / Alumno:</label>
+                <input type="text" id="cliente" placeholder="Ej. María López">
+            </div>
+            <div class="form-col">
+                <label>Servicio Solicitado:</label>
+                <select id="servicio">
+                    <option value="Soporte Técnico">Soporte Técnico</option>
+                    <option value="Asesoría Académica">Asesoría Académica</option>
+                    <option value="Mantenimiento PC">Mantenimiento PC</option>
+                    <option value="Trámite Administrativo">Trámite Administrativo</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-col">
+                <label>Fecha:</label>
+                <input type="date" id="fecha">
+            </div>
+            <div class="form-col">
+                <label>Hora:</label>
+                <input type="time" id="hora">
+            </div>
+        </div>
+
+        <button class="btn-add" onclick="agendarCita()">Agendar Turno</button>
+
+        <!-- FILTRO POR FECHA -->
+        <div class="filter-bar">
+            <label style="margin:0;">Filtrar por fecha:</label>
+            <input type="date" id="filtroFecha" onchange="mostrarCitas()" style="width: auto;">
+            <button onclick="limpiarFiltro()" style="background:#6c757d; padding: 7px 12px; font-size: 12px;">Ver Todas</button>
+        </div>
+
+        <div id="listaCitas"></div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // Poner la fecha de hoy por defecto
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById("fecha").value = hoy;
+            mostrarCitas();
+        };
+
+        function obtenerCitas() {
+            return JSON.parse(localStorage.getItem("citas_502")) || [];
+        }
+
+        function agendarCita() {
+            const cliente = document.getElementById("cliente").value.trim();
+            const servicio = document.getElementById("servicio").value;
+            const fecha = document.getElementById("fecha").value;
+            const hora = document.getElementById("hora").value;
+
+            if (!cliente || !fecha || !hora) {
+                alert("Por favor complete el nombre, la fecha y la hora.");
+                return;
+            }
+
+            let citas = obtenerCitas();
+            citas.push({
+                id: Date.now(),
+                cliente,
+                servicio,
+                fecha,
+                hora,
+                estado: "Pendiente"
+            });
+
+            // Ordenar cronológicamente
+            citas.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+
+            localStorage.setItem("citas_502", JSON.stringify(citas));
+            document.getElementById("cliente").value = "";
+            document.getElementById("hora").value = "";
+            mostrarCitas();
+        }
+
+        function cambiarEstado(id) {
+            let citas = obtenerCitas();
+            const cita = citas.find(c => c.id === id);
+            if (cita) {
+                cita.estado = cita.estado === "Pendiente" ? "Atendida" : "Pendiente";
+                localStorage.setItem("citas_502", JSON.stringify(citas));
+                mostrarCitas();
+            }
+        }
+
+        function borrarCita(id) {
+            if (confirm("¿Cancelar y eliminar esta cita?")) {
+                let citas = obtenerCitas().filter(c => c.id !== id);
+                localStorage.setItem("citas_502", JSON.stringify(citas));
+                mostrarCitas();
+            }
+        }
+
+        function limpiarFiltro() {
+            document.getElementById("filtroFecha").value = "";
+            mostrarCitas();
+        }
+
+        function mostrarCitas() {
+            let citas = obtenerCitas();
+            const filtro = document.getElementById("filtroFecha").value;
+            const contenedor = document.getElementById("listaCitas");
+            contenedor.innerHTML = "";
+
+            if (filtro) {
+                citas = citas.filter(c => c.fecha === filtro);
+            }
+
+            if (citas.length === 0) {
+                contenedor.innerHTML = `<p style="text-align:center; color:#777; margin-top:20px;">No hay citas programadas para mostrar.</p>`;
+                return;
+            }
+
+            citas.forEach(c => {
+                const esAtendida = c.estado === "Atendida";
+                contenedor.innerHTML += `
+                    <div class="cita-item ${esAtendida ? 'cita-atendida' : ''}">
+                        <div>
+                            <strong style="font-size:15px;">${c.cliente}</strong> 
+                            <span class="badge ${esAtendida ? 'bg-atendida' : 'bg-pendiente'}">${c.estado}</span><br>
+                            <span style="font-size:13px; color:#555;">📌 ${c.servicio} | 📆 ${c.fecha} a las ⏰ ${c.hora}</span>
+                        </div>
+                        <div style="display:flex; gap:5px;">
+                            <button onclick="cambiarEstado(${c.id})" style="background:${esAtendida ? '#ffc107' : '#28a745'}; color:${esAtendida ? '#000' : '#fff'}; padding:6px 10px; font-size:12px;">
+                                ${esAtendida ? 'Reabrir' : 'Atender'}
+                            </button>
+                            <button onclick="borrarCita(${c.id})" style="background:#dc3545; padding:6px 10px; font-size:12px;">X</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
